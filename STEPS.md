@@ -477,7 +477,7 @@ Interpretation:
 
 ## Step 7: Join Wi-Fi and serve a tiny HTTP response
 
-Status: implemented and compile-checked with placeholder credentials; not flashed yet.
+Status: implemented, flashed, and tested successfully on 2026-07-03.
 
 Goal: move from "the Wi-Fi chip can blink its LED" to "the Pico 2 W can join the local network and accept a TCP connection."
 
@@ -520,7 +520,7 @@ embassy-net
 embedded-io-async
 ```
 
-Compile check performed with placeholder credentials only:
+Initial compile check performed with placeholder credentials only:
 
 ```sh
 WIFI_NETWORK=dummy WIFI_PASSWORD=dummy cargo build
@@ -532,16 +532,6 @@ Result:
 Finished `dev` profile [optimized + debuginfo]
 ```
 
-Important safety note:
-
-The placeholder binary was removed after the compile check:
-
-```sh
-cargo clean -p pico-webserver
-```
-
-Next action:
-
 Build and flash with real Wi-Fi credentials:
 
 ```sh
@@ -549,9 +539,40 @@ WIFI_NETWORK='your-ssid' WIFI_PASSWORD='your-password' cargo build
 picotool load -u -v -x -t elf target/riscv32imac-unknown-none-elf/debug/pico-webserver
 ```
 
-After flashing:
+Flash result:
+
+```text
+Verifying Flash: 100%
+OK
+The device was rebooted to start the application.
+```
+
+Runtime test:
+
+The device joined Wi-Fi via DHCP and responded on port 80 at `192.168.50.232`.
+This address is DHCP-assigned and may change.
+
+```sh
+curl http://192.168.50.232/
+```
+
+Response:
+
+```text
+Hello from Pico 2 W, Rust, and RP2350 RISC-V.
+```
+
+Important safety note:
+
+The flashed binary contains the compile-time Wi-Fi credentials, so generated build artifacts must stay out of Git.
+The repository ignores `target/` and top-level `*.uf2` files:
+
+```sh
+cargo clean
+```
+
+Observed LED behavior:
 
 - LED should blink twice after CYW43 init.
 - LED should stay on after Wi-Fi link and DHCP are up.
 - LED should briefly turn off/on for each accepted HTTP connection.
-- The IP address will come from DHCP. Until we add serial logging, mDNS, or a fixed IP, find it from the router/DHCP lease table.

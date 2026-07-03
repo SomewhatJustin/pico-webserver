@@ -576,3 +576,88 @@ Observed LED behavior:
 - LED should blink twice after CYW43 init.
 - LED should stay on after Wi-Fi link and DHCP are up.
 - LED should briefly turn off/on for each accepted HTTP connection.
+
+## Step 8: Live stats dashboard
+
+Status: implemented and compile-checked; not flashed yet because the running Step 7 firmware is not currently visible to `picotool`.
+
+Goal: replace the plain text HTTP response with a tiny live dashboard that shows useful readings from the RP2350 and firmware runtime.
+
+Routes:
+
+```text
+/       HTML dashboard with JavaScript polling
+/json   machine-readable live stats
+```
+
+Live readings included:
+
+- Uptime in seconds and milliseconds from `embassy_time::Instant`.
+- Request counter and timestamp of the latest HTTP request.
+- DHCP IPv4 address and prefix from `embassy-net`.
+- Internal temperature sensor raw ADC sample.
+- Estimated die temperature in degrees Celsius.
+- Clock frequencies reported by `embassy-rp`:
+  - system clock
+  - peripheral clock
+  - ADC clock
+  - ROSC clock
+- Main RAM size from the linker memory map.
+- Static RAM usage estimate through the `_eheap` linker symbol.
+- Current stack pointer and approximate stack headroom.
+
+Temperature conversion:
+
+The internal temperature sensor is read through `embassy_rp::adc::Channel::new_temp_sensor`.
+The conversion uses the RP2350 datasheet's approximate temperature formula:
+
+```text
+T = 27 - (ADC_voltage - 0.706) / 0.001721
+```
+
+The value is an estimate. The datasheet notes that user calibration may be required for accurate readings.
+
+Explicitly not available yet:
+
+- CPU utilization: this bare-metal async firmware has no OS scheduler accounting or idle-time sampler.
+- Heap utilization: the linker script sets `_heap_size = 0`, so there is no heap allocator to measure.
+
+Build check:
+
+```sh
+WIFI_NETWORK='your-ssid' WIFI_PASSWORD='your-password' cargo build
+```
+
+Result:
+
+```text
+Finished `dev` profile [optimized + debuginfo]
+```
+
+Attempted flash:
+
+```sh
+picotool load -u -v -x -t elf target/riscv32imac-unknown-none-elf/debug/pico-webserver
+```
+
+Result:
+
+```text
+No accessible RP-series devices in BOOTSEL mode were found.
+```
+
+Current board state:
+
+The board is still running the Step 7 firmware and responds at the DHCP address previously observed:
+
+```sh
+curl http://192.168.50.232/
+```
+
+```text
+Hello from Pico 2 W, Rust, and RP2350 RISC-V.
+```
+
+Next action:
+
+Put the Pico 2 W into BOOTSEL manually, then flash the compiled dashboard firmware.
